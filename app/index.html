@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Personal Finance Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #111827;
+      --bg-card-alt: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --success: #4ade80;
+      --border: #1f2937;
+      --radius-lg: 1rem;
+      --radius-md: 0.75rem;
+      --shadow-soft: 0 20px 40px rgba(15, 23, 42, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937, #020617 60%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .app-container {
+      max-width: 1100px;
+      width: 100%;
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
+      border-radius: 1.5rem;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      padding: 18px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    .title-group h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .title-group p {
+      margin: 2px 0 0;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: linear-gradient(to right, rgba(56, 189, 248, 0.2), rgba(45, 212, 191, 0.1));
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.4fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: radial-gradient(circle at top left, #111827, #020617 70%);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    select,
+    input,
+    button,
+    textarea {
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+
+    select,
+    input,
+    textarea {
+      padding: 7px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+      outline: none;
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
+    }
+
+    textarea {
+      border-radius: var(--radius-md);
+      min-height: 40px;
+      resize: vertical;
+    }
+
+    button {
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(to right, #38bdf8, #22c55e);
+      color: #020617;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.1s;
+      box-shadow: 0 8px 18px rgba(34, 197, 94, 0.4);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 15px 28px rgba(34, 197, 94, 0.5);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 6px 14px rgba(34, 197, 94, 0.4);
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--text-muted);
+      box-shadow: none;
+    }
+
+    button.secondary:hover {
+      background: rgba(15, 23, 42, 0.8);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+      max-height: 210px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .pill {
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: linear-gradient(to right, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s;
+    }
+
+    .pill:hover {
+      border-color: var(--accent);
+      background: radial-gradient(circle at left, rgba(56, 189, 248, 0.08), #020617);
+      transform: translateY(-1px);
+    }
+
+    .pill.active {
+      border-color: var(--accent);
+      background: radial-gradient(circle at left, rgba(56, 189, 248, 0.15), #020617);
+    }
+
+    .pill-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .pill-title {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .pill-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .pill-badge {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .transactions-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px;
+      font-size: 0.8rem;
+    }
+
+    .transactions-table th,
+    .transactions-table td {
+      padding: 6px 6px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.95);
+      text-align: left;
+    }
+
+    .transactions-table th {
+      font-weight: 500;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .transactions-table tr:nth-child(even) td {
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .transactions-table tr:nth-child(odd) td {
+      background: rgba(15, 23, 42, 0.25);
+    }
+
+    .amount {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .amount.income {
+      color: var(--success);
+    }
+
+    .amount.expense {
+      color: var(--danger);
+    }
+
+    .tag {
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+    }
+
+    .tag.income {
+      border-color: rgba(74, 222, 128, 0.6);
+      color: var(--success);
+    }
+
+    .tag.expense {
+      border-color: rgba(248, 113, 113, 0.6);
+      color: var(--danger);
+    }
+
+    .cashflow-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      font-size: 0.78rem;
+    }
+
+    .cashflow-table th,
+    .cashflow-table td {
+      padding: 6px 6px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+    }
+
+    .cashflow-table th {
+      font-weight: 500;
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--text-muted);
+    }
+
+    .chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .muted {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+
+    .status-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <div class="title-group">
+        <h1>Personal Finance Management</h1>
+        <p>Phase 4 · Demo web application</p>
+      </div>
+      <div class="badge">
+        PostgreSQL · Flask backend · Vanilla JS frontend
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- Left column: user & accounts & new transaction -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">User & Accounts</div>
+            <div class="card-subtitle">Select a user, then pick an account</div>
+          </div>
+          <button class="secondary" id="refreshUsersBtn">↻ Refresh</button>
+        </div>
+
+        <div class="field">
+          <label for="userSelect">User</label>
+          <select id="userSelect"></select>
+        </div>
+
+        <div class="field">
+          <label>Accounts</label>
+          <div id="accountsList" class="list"></div>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid rgba(148, 163, 184, 0.2); margin: 4px 0 8px;" />
+
+        <div class="card-header">
+          <div>
+            <div class="card-title">New transaction</div>
+            <div class="card-subtitle">Quick income/expense entry</div>
+          </div>
+        </div>
+
+        <form id="newTransactionForm">
+          <div class="field">
+            <label for="txType">Type</label>
+            <select id="txType" required>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="txAmount">Amount</label>
+            <input id="txAmount" type="number" step="0.01" min="0" required />
+          </div>
+          <div class="field">
+            <label for="txCategoryId">Category ID (optional)</label>
+            <input id="txCategoryId" type="number" min="0" placeholder="e.g. 3" />
+          </div>
+          <div class="field">
+            <label for="txDescription">Description</label>
+            <textarea id="txDescription" placeholder="e.g. Coffee with friends"></textarea>
+          </div>
+          <button type="submit">+ Add transaction</button>
+          <p class="muted" id="txStatus"></p>
+        </form>
+
+        <div class="status-line">
+          <span class="muted" id="selectionInfo">No user/account selected</span>
+          <span class="status-dot"></span>
+        </div>
+      </section>
+
+      <!-- Right column: transactions + cashflow -->
+      <section class="card">
+        <div class="card-header" style="margin-bottom: 2px;">
+          <div>
+            <div class="card-title">Account Activity</div>
+            <div class="card-subtitle">
+              Recent transactions & yearly cash-flow
+            </div>
+          </div>
+          <div class="chip">
+            <span class="chip-dot"></span>
+            Live data from PostgreSQL
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom: 4px;">
+          <label for="yearInput">Cash-flow year</label>
+          <input id="yearInput" type="number" min="2000" max="2100" />
+        </div>
+
+        <div>
+          <div class="card-subtitle">Recent transactions</div>
+          <table class="transactions-table" id="transactionsTable">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th class="amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="transactionsBody">
+              <tr>
+                <td colspan="5" class="muted">Select an account to view its transactions.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 10px;">
+          <div class="card-subtitle">Monthly cash-flow (all accounts of selected user)</div>
+          <table class="cashflow-table" id="cashflowTable">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th class="amount">Income</th>
+                <th class="amount">Expense</th>
+                <th class="amount">Net</th>
+              </tr>
+            </thead>
+            <tbody id="cashflowBody">
+              <tr>
+                <td colspan="4" class="muted">Select a user and year to see cash-flow.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000/api";
+
+    let currentUserId = null;
+    let currentAccountId = null;
+
+    // Utility: small helpers
+    function formatAmount(amount) {
+      return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function setSelectionInfo() {
+      const el = document.getElementById("selectionInfo");
+      if (!currentUserId) {
+        el.textContent = "No user/account selected";
+      } else if (!currentAccountId) {
+        el.textContent = `User #${currentUserId} selected, no account selected`;
+      } else {
+        el.textContent = `User #${currentUserId}, account #${currentAccountId} selected`;
+      }
+    }
+
+    // ----------------------------
+    // Load users
+    // ----------------------------
+    async function loadUsers() {
+      const userSelect = document.getElementById("userSelect");
+      userSelect.innerHTML = "";
+
+      try {
+        const res = await fetch(`${API_BASE}/users`);
+        const users = await res.json();
+
+        if (!Array.isArray(users) || users.length === 0) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "No users found";
+          userSelect.appendChild(opt);
+          return;
+        }
+
+        users.forEach((u, index) => {
+          const opt = document.createElement("option");
+          opt.value = u.user_id;
+          opt.textContent = `${u.full_name} (#${u.user_id})`;
+          userSelect.appendChild(opt);
+          if (index === 0) {
+            currentUserId = u.user_id;
+          }
+        });
+
+        userSelect.value = currentUserId;
+        setSelectionInfo();
+        await loadAccounts(currentUserId);
+        const yearInput = document.getElementById("yearInput");
+        const currentYear = new Date().getFullYear();
+        yearInput.value = currentYear;
+        await loadCashflow(currentUserId, currentYear);
+
+      } catch (err) {
+        console.error(err);
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "Error loading users";
+        userSelect.appendChild(opt);
+      }
+    }
+
+    // ----------------------------
+    // Load accounts for user
+    // ----------------------------
+    async function loadAccounts(userId) {
+      currentUserId = userId;
+      currentAccountId = null;
+      setSelectionInfo();
+
+      const container = document.getElementById("accountsList");
+      container.innerHTML = `<div class="muted">Loading accounts...</div>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/users/${userId}/accounts`);
+        const accounts = await res.json();
+
+        if (!Array.isArray(accounts) || accounts.length === 0) {
+          container.innerHTML = `<div class="muted">No accounts for this user.</div>`;
+          return;
+        }
+
+        container.innerHTML = "";
+        accounts.forEach((acc, idx) => {
+          const pill = document.createElement("div");
+          pill.className = "pill";
+          pill.dataset.accountId = acc.account_id;
+
+          const main = document.createElement("div");
+          main.className = "pill-main";
+
+          const title = document.createElement("div");
+          title.className = "pill-title";
+          title.textContent = acc.account_name;
+
+          const meta = document.createElement("div");
+          meta.className = "pill-meta";
+          meta.textContent = `${acc.account_type} · ${acc.currency_code} ${formatAmount(acc.current_balance)} (#${acc.account_id})`;
+
+          main.appendChild(title);
+          main.appendChild(meta);
+
+          const badge = document.createElement("div");
+          badge.className = "pill-badge";
+          badge.textContent = acc.is_active ? "Active" : "Closed";
+
+          pill.appendChild(main);
+          pill.appendChild(badge);
+
+          pill.addEventListener("click", async () => {
+            // highlight
+            document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+            pill.classList.add("active");
+
+            currentAccountId = acc.account_id;
+            setSelectionInfo();
+            await loadTransactions(currentAccountId);
+          });
+
+          container.appendChild(pill);
+
+          // auto-select first account
+          if (idx === 0) {
+            pill.classList.add("active");
+            currentAccountId = acc.account_id;
+          }
+        });
+
+        if (currentAccountId) {
+          await loadTransactions(currentAccountId);
+        } else {
+          const tbody = document.getElementById("transactionsBody");
+          tbody.innerHTML = `<tr><td colspan="5" class="muted">No account selected.</td></tr>`;
+        }
+
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = `<div class="muted">Error loading accounts.</div>`;
+      }
+    }
+
+    // ----------------------------
+    // Load transactions for account
+    // ----------------------------
+    async function loadTransactions(accountId) {
+      const tbody = document.getElementById("transactionsBody");
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading transactions...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/accounts/${accountId}/transactions?limit=20`);
+        const txs = await res.json();
+
+        if (!Array.isArray(txs) || txs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="muted">No transactions for this account.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = "";
+        txs.forEach(tx => {
+          const tr = document.createElement("tr");
+
+          const dateCell = document.createElement("td");
+          const dt = new Date(tx.tx_timestamp);
+          dateCell.textContent = dt.toLocaleString();
+          tr.appendChild(dateCell);
+
+          const typeCell = document.createElement("td");
+          const typeTag = document.createElement("span");
+          typeTag.className = `tag ${tx.tx_type}`;
+          typeTag.textContent = tx.tx_type;
+          typeCell.appendChild(typeTag);
+          tr.appendChild(typeCell);
+
+          const descCell = document.createElement("td");
+          descCell.textContent = tx.description || "";
+          tr.appendChild(descCell);
+
+          const catCell = document.createElement("td");
+          catCell.textContent = tx.category_name || "-";
+          tr.appendChild(catCell);
+
+          const amountCell = document.createElement("td");
+          amountCell.className = `amount ${tx.tx_type}`;
+          amountCell.textContent = formatAmount(tx.amount);
+          tr.appendChild(amountCell);
+
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="5" class="muted">Error loading transactions.</td></tr>`;
+      }
+    }
+
+    // ----------------------------
+    // Load monthly cash-flow
+    // ----------------------------
+    async function loadCashflow(userId, year) {
+      const tbody = document.getElementById("cashflowBody");
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">Loading cash-flow...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/users/${userId}/cashflow?year=${year}`);
+        const rows = await res.json();
+
+        if (!Array.isArray(rows) || rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="muted">No cash-flow data for this year.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = "";
+        rows.forEach(row => {
+          const tr = document.createElement("tr");
+
+          const monthCell = document.createElement("td");
+          monthCell.textContent = row.month_label;
+          tr.appendChild(monthCell);
+
+          const incomeCell = document.createElement("td");
+          incomeCell.className = "amount income";
+          incomeCell.textContent = formatAmount(row.income);
+          tr.appendChild(incomeCell);
+
+          const expenseCell = document.createElement("td");
+          expenseCell.className = "amount expense";
+          expenseCell.textContent = formatAmount(row.expense);
+          tr.appendChild(expenseCell);
+
+          const netCell = document.createElement("td");
+          netCell.className = "amount";
+          netCell.style.color = row.net >= 0 ? "var(--success)" : "var(--danger)";
+          netCell.textContent = formatAmount(row.net);
+          tr.appendChild(netCell);
+
+          tbody.appendChild(tr);
+        });
+
+      } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="4" class="muted">Error loading cash-flow.</td></tr>`;
+      }
+    }
+
+    // ----------------------------
+    // New transaction form
+    // ----------------------------
+    async function handleNewTransaction(event) {
+      event.preventDefault();
+      const statusEl = document.getElementById("txStatus");
+      statusEl.textContent = "";
+
+      if (!currentUserId || !currentAccountId) {
+        statusEl.textContent = "Select a user and account first.";
+        return;
+      }
+
+      const txType = document.getElementById("txType").value;
+      const amountStr = document.getElementById("txAmount").value;
+      const categoryIdStr = document.getElementById("txCategoryId").value;
+      const description = document.getElementById("txDescription").value;
+
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount) || amount <= 0) {
+        statusEl.textContent = "Amount must be a positive number.";
+        return;
+      }
+
+      let category_id = null;
+      if (categoryIdStr.trim() !== "") {
+        const num = parseInt(categoryIdStr, 10);
+        if (!isNaN(num) && num > 0) {
+          category_id = num;
+        }
+      }
+
+      const payload = {
+        user_id: currentUserId,
+        account_id: currentAccountId,
+        tx_type: txType,
+        amount: amount,
+        category_id: category_id,
+        description: description
+      };
+
+      try {
+        statusEl.textContent = "Saving transaction...";
+        const res = await fetch(`${API_BASE}/transactions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = "Error: " + (data.error || "Unknown error");
+          return;
+        }
+
+        statusEl.textContent = "Transaction saved ✔";
+        document.getElementById("txAmount").value = "";
+        document.getElementById("txCategoryId").value = "";
+        document.getElementById("txDescription").value = "";
+
+        // refresh transactions and accounts (for updated balance)
+        if (currentAccountId) {
+          await loadTransactions(currentAccountId);
+        }
+        if (currentUserId) {
+          await loadAccounts(currentUserId);
+          const year = parseInt(document.getElementById("yearInput").value, 10) || new Date().getFullYear();
+          await loadCashflow(currentUserId, year);
+        }
+
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error saving transaction.";
+      }
+    }
+
+    // ----------------------------
+    // Init
+    // ----------------------------
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("refreshUsersBtn").addEventListener("click", loadUsers);
+
+      document.getElementById("userSelect").addEventListener("change", async (e) => {
+        const userId = parseInt(e.target.value, 10);
+        if (!isNaN(userId)) {
+          currentUserId = userId;
+          setSelectionInfo();
+          await loadAccounts(userId);
+
+          const year = parseInt(document.getElementById("yearInput").value, 10) || new Date().getFullYear();
+          await loadCashflow(userId, year);
+        }
+      });
+
+      document.getElementById("yearInput").addEventListener("change", async (e) => {
+        const year = parseInt(e.target.value, 10);
+        if (!isNaN(year) && currentUserId) {
+          await loadCashflow(currentUserId, year);
+        }
+      });
+
+      document.getElementById("newTransactionForm").addEventListener("submit", handleNewTransaction);
+
+      // initial load
+      loadUsers();
+      setSelectionInfo();
+    });
+  </script>
+</body>
+</html>
