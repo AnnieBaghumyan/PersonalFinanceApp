@@ -11,7 +11,7 @@ import getpass
 
 password = getpass.getpass("Enter password: ")
 
-DB_NAME = "personal_finance_project"
+DB_NAME = "pfms"
 DB_USER = "postgres"
 DB_PASSWORD = password
 DB_HOST = "localhost"
@@ -189,10 +189,10 @@ def add_transaction(conn):
 
     query = """
         INSERT INTO transactions
-            (user_id, account_id, category_id, bill_id, loan_id, goal_id,
+            (account_id, category_id, bill_id, loan_id, goal_id,
              amount, tx_type, tx_timestamp, description, operation_id, transfer_id)
         VALUES
-            (%s, %s, %s, NULL, NULL, NULL,
+            (%s, %s, NULL, NULL, NULL,
              %s, %s, NOW(), %s, %s, NULL);
     """
 
@@ -236,8 +236,8 @@ def show_monthly_cash_flow(conn):
         SELECT date_trunc('month', tx_timestamp)::date AS month_start,
                SUM(CASE WHEN tx_type = 'income'  THEN amount END) AS income_amount,
                SUM(CASE WHEN tx_type = 'expense' THEN amount END) AS expense_amount
-        FROM transactions
-        WHERE user_id = %s
+        FROM transactions t JOIN accounts a
+        WHERE a.user_id = %s
           AND tx_timestamp::date BETWEEN %s AND %s
         GROUP BY month_start
         ORDER BY month_start;

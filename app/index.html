@@ -327,6 +327,11 @@
       color: var(--danger);
     }
 
+    .tag.transfer {
+      border-color: rgba(56, 189, 248, 0.6);
+      color: var(--accent);
+    }
+
     .cashflow-table {
       width: 100%;
       border-collapse: collapse;
@@ -429,7 +434,7 @@
         <div class="card-header">
           <div>
             <div class="card-title">New transaction</div>
-            <div class="card-subtitle">Quick income/expense entry</div>
+            <div class="card-subtitle">Income · Expense · Transfer</div>
           </div>
         </div>
 
@@ -439,19 +444,35 @@
             <select id="txType" required>
               <option value="income">Income</option>
               <option value="expense">Expense</option>
+              <option value="transfer">Transfer</option>
             </select>
           </div>
           <div class="field">
             <label for="txAmount">Amount</label>
             <input id="txAmount" type="number" step="0.01" min="0" required />
           </div>
-          <div class="field">
-            <label for="txCategoryId">Category ID (optional)</label>
-            <input id="txCategoryId" type="number" min="0" placeholder="e.g. 3" />
+
+          <div class="field" id="categoryField">
+            <label for="txCategoryId">Category</label>
+            <select id="txCategoryId">
+              <option value="">No category</option>
+            </select>
+            <p class="muted" id="categoryHint">
+              Only categories matching the selected transaction type are shown.
+            </p>
           </div>
+
+          <div class="field" id="transferToField" style="display: none;">
+            <label for="txToAccount">Destination account (for transfer)</label>
+            <select id="txToAccount"></select>
+            <p class="muted" id="transferHint">
+              Money will be moved from the active account to this destination account.
+            </p>
+          </div>
+
           <div class="field">
             <label for="txDescription">Description</label>
-            <textarea id="txDescription" placeholder="e.g. Coffee with friends"></textarea>
+            <textarea id="txDescription" placeholder="e.g. Thai food, rent, transfer to savings"></textarea>
           </div>
           <button type="submit">+ Add transaction</button>
           <p class="muted" id="txStatus"></p>
@@ -530,6 +551,8 @@
 
     let currentUserId = null;
     let currentAccountId = null;
+    let currentUserAccounts = [];
+    let allCategories = [];
 
     // Utility: small helpers
     function formatAmount(amount) {
@@ -544,6 +567,155 @@
         el.textContent = `User #${currentUserId} selected, no account selected`;
       } else {
         el.textContent = `User #${currentUserId}, account #${currentAccountId} selected`;
+      }
+    }
+
+    // ----------------------------
+    // Categories: build hierarchical options
+    // ----------------------------
+    function buildCategoryOptions(txType) {
+      const select = document.getElementById("txCategoryId");
+      if (!select) return;
+
+      select.innerHTML = "";
+      const baseOption = document.createElement("option");
+      baseOption.value = "";
+      baseOption.textContent = "No category";
+      select.appendChild(baseOption);
+
+      if (!Array.isArray(allCategories) || allCategories.length === 0) return;
+
+      const relevant = allCategories.filter(c => c.category_type === txType);
+      if (relevant.length === 0) return;
+
+      // Map nodes by id
+      const byId = new Map();
+      relevant.forEach(c => {
+        byId.set(c.category_id, {
+          ...c,
+          children: []
+        });
+      });
+
+      // Link children
+      const roots = [];
+      byId.forEach(node => {
+        if (node.parent_category_id && byId.has(node.parent_category_id)) {
+          byId.get(node.parent_category_id).children.push(node);
+        } else {
+          roots.push(node);
+        }
+      });
+
+      roots.sort((a, b) => a.category_name.localeCompare(b.category_name));
+
+      function addOptions(node, prefix) {
+        const label = prefix ? `${prefix} / ${node.category_name}` : node.category_name;
+        const opt = document.createElement("option");
+        opt.value = node.category_id;
+        opt.textContent = label;
+        select.appendChild(opt);
+
+        node.children.sort((a, b) => a.category_name.localeCompare(b.category_name));
+        node.children.forEach(child => addOptions(child, label));
+      }
+
+      roots.forEach(root => addOptions(root, ""));
+    }
+
+    async function loadCategories(userId) {
+      allCategories = [];
+      const select = document.getElementById("txCategoryId");
+      if (select) {
+        select.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "Loading categories...";
+        select.appendChild(opt);
+      }
+
+      if (!userId) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/users/${userId}/categories`);
+        const cats = await res.json();
+        if (Array.isArray(cats)) {
+          allCategories = cats;
+        } else {
+          allCategories = [];
+        }
+      } catch (err) {
+        console.error("Error loading categories:", err);
+        allCategories = [];
+      }
+
+      const txTypeSelect = document.getElementById("txType");
+      const txType = txTypeSelect ? txTypeSelect.value : "income";
+      if (txType !== "transfer") {
+        buildCategoryOptions(txType);
+      }
+    }
+
+    // ----------------------------
+    // Transfer: destination account options
+    // ----------------------------
+    function buildTransferAccountOptions() {
+      const select = document.getElementById("txToAccount");
+      if (!select) return;
+
+      select.innerHTML = "";
+
+      if (!currentUserAccounts || currentUserAccounts.length === 0 || !currentAccountId) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No other accounts available";
+        select.appendChild(opt);
+        return;
+      }
+
+      const available = currentUserAccounts.filter(acc => acc.account_id !== currentAccountId);
+
+      if (available.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No other accounts available";
+        select.appendChild(opt);
+        return;
+      }
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select destination account";
+      select.appendChild(placeholder);
+
+      available.forEach(acc => {
+        const opt = document.createElement("option");
+        opt.value = acc.account_id;
+        opt.textContent = `${acc.account_name} · ${acc.currency_code} ${formatAmount(acc.current_balance)} (#${acc.account_id})`;
+        select.appendChild(opt);
+      });
+    }
+
+    // ----------------------------
+    // Form visibility changes by type
+    // ----------------------------
+    function updateFormControlsForType() {
+      const txType = document.getElementById("txType").value;
+      const categoryField = document.getElementById("categoryField");
+      const transferField = document.getElementById("transferToField");
+
+      if (txType === "transfer") {
+        if (categoryField) categoryField.style.display = "none";
+        if (transferField) {
+          transferField.style.display = "flex";
+          buildTransferAccountOptions();
+        }
+      } else {
+        if (transferField) transferField.style.display = "none";
+        if (categoryField) {
+          categoryField.style.display = "flex";
+          buildCategoryOptions(txType);
+        }
       }
     }
 
@@ -578,12 +750,15 @@
 
         userSelect.value = currentUserId;
         setSelectionInfo();
-        await loadAccounts(currentUserId);
+
         const yearInput = document.getElementById("yearInput");
         const currentYear = new Date().getFullYear();
         yearInput.value = currentYear;
-        await loadCashflow(currentUserId, currentYear);
 
+        await loadAccounts(currentUserId);
+        await loadCategories(currentUserId);
+        await loadCashflow(currentUserId, currentYear);
+        updateFormControlsForType();
       } catch (err) {
         console.error(err);
         const opt = document.createElement("option");
@@ -599,6 +774,7 @@
     async function loadAccounts(userId) {
       currentUserId = userId;
       currentAccountId = null;
+      currentUserAccounts = [];
       setSelectionInfo();
 
       const container = document.getElementById("accountsList");
@@ -613,6 +789,7 @@
           return;
         }
 
+        currentUserAccounts = accounts;
         container.innerHTML = "";
         accounts.forEach((acc, idx) => {
           const pill = document.createElement("div");
@@ -641,12 +818,12 @@
           pill.appendChild(badge);
 
           pill.addEventListener("click", async () => {
-            // highlight
             document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
             pill.classList.add("active");
 
             currentAccountId = acc.account_id;
             setSelectionInfo();
+            updateFormControlsForType();
             await loadTransactions(currentAccountId);
           });
 
@@ -660,12 +837,12 @@
         });
 
         if (currentAccountId) {
+          updateFormControlsForType();
           await loadTransactions(currentAccountId);
         } else {
           const tbody = document.getElementById("transactionsBody");
           tbody.innerHTML = `<tr><td colspan="5" class="muted">No account selected.</td></tr>`;
         }
-
       } catch (err) {
         console.error(err);
         container.innerHTML = `<div class="muted">Error loading accounts.</div>`;
@@ -782,14 +959,13 @@
       const statusEl = document.getElementById("txStatus");
       statusEl.textContent = "";
 
-      if (!currentUserId || !currentAccountId) {
-        statusEl.textContent = "Select a user and account first.";
+      if (!currentAccountId) {
+        statusEl.textContent = "Select an account first.";
         return;
       }
 
       const txType = document.getElementById("txType").value;
       const amountStr = document.getElementById("txAmount").value;
-      const categoryIdStr = document.getElementById("txCategoryId").value;
       const description = document.getElementById("txDescription").value;
 
       const amount = parseFloat(amountStr);
@@ -798,43 +974,88 @@
         return;
       }
 
-      let category_id = null;
-      if (categoryIdStr.trim() !== "") {
-        const num = parseInt(categoryIdStr, 10);
-        if (!isNaN(num) && num > 0) {
-          category_id = num;
-        }
-      }
-
-      const payload = {
-        user_id: currentUserId,
-        account_id: currentAccountId,
-        tx_type: txType,
-        amount: amount,
-        category_id: category_id,
-        description: description
-      };
+      const operation_id = crypto.randomUUID();
 
       try {
         statusEl.textContent = "Saving transaction...";
-        const res = await fetch(`${API_BASE}/transactions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
 
-        const data = await res.json();
-        if (!res.ok) {
-          statusEl.textContent = "Error: " + (data.error || "Unknown error");
-          return;
+        if (txType === "transfer") {
+          const toAccountStr = document.getElementById("txToAccount").value;
+          const toAccountId = parseInt(toAccountStr, 10);
+          if (!toAccountStr || isNaN(toAccountId)) {
+            statusEl.textContent = "Select destination account for transfer.";
+            return;
+          }
+          if (toAccountId === currentAccountId) {
+            statusEl.textContent = "Destination account must be different.";
+            return;
+          }
+
+          const payload = {
+            from_account_id: currentAccountId,
+            to_account_id: toAccountId,
+            amount: amount,
+            description: description,
+            operation_id: operation_id
+          };
+
+          const res = await fetch(`${API_BASE}/transfers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            statusEl.textContent = "Error: " + (data.error || "Unknown error");
+            return;
+          }
+
+        } else {
+          // income / expense
+          const categorySelect = document.getElementById("txCategoryId");
+          let category_id = null;
+          if (categorySelect && categorySelect.value !== "") {
+            const num = parseInt(categorySelect.value, 10);
+            if (!isNaN(num) && num > 0) {
+              category_id = num;
+            }
+          }
+
+          const payload = {
+            account_id: currentAccountId,
+            tx_type: txType,
+            amount: amount,
+            category_id: category_id,
+            description: description,
+            operation_id: operation_id
+          };
+
+          const res = await fetch(`${API_BASE}/transactions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            statusEl.textContent = "Error: " + (data.error || "Unknown error");
+            return;
+          }
         }
 
         statusEl.textContent = "Transaction saved ✔";
+
         document.getElementById("txAmount").value = "";
-        document.getElementById("txCategoryId").value = "";
+        if (document.getElementById("txCategoryId")) {
+          document.getElementById("txCategoryId").value = "";
+        }
+        if (document.getElementById("txToAccount")) {
+          document.getElementById("txToAccount").value = "";
+        }
         document.getElementById("txDescription").value = "";
 
-        // refresh transactions and accounts (for updated balance)
+        // refresh
         if (currentAccountId) {
           await loadTransactions(currentAccountId);
         }
@@ -842,8 +1063,8 @@
           await loadAccounts(currentUserId);
           const year = parseInt(document.getElementById("yearInput").value, 10) || new Date().getFullYear();
           await loadCashflow(currentUserId, year);
+          await loadCategories(currentUserId);
         }
-
       } catch (err) {
         console.error(err);
         statusEl.textContent = "Error saving transaction.";
@@ -862,9 +1083,11 @@
           currentUserId = userId;
           setSelectionInfo();
           await loadAccounts(userId);
+          await loadCategories(userId);
 
           const year = parseInt(document.getElementById("yearInput").value, 10) || new Date().getFullYear();
           await loadCashflow(userId, year);
+          updateFormControlsForType();
         }
       });
 
@@ -873,6 +1096,10 @@
         if (!isNaN(year) && currentUserId) {
           await loadCashflow(currentUserId, year);
         }
+      });
+
+      document.getElementById("txType").addEventListener("change", () => {
+        updateFormControlsForType();
       });
 
       document.getElementById("newTransactionForm").addEventListener("submit", handleNewTransaction);
