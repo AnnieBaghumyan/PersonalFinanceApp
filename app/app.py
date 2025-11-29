@@ -9,7 +9,7 @@ import getpass
 
 password = getpass.getpass("Enter password: ")
 
-DB_NAME = "pfms"
+DB_NAME = "personal_finance_project"
 DB_USER = "postgres"
 DB_PASSWORD = password
 DB_HOST = "localhost"
@@ -24,6 +24,7 @@ def get_db():
         host=DB_HOST,
         port=DB_PORT,
     )
+
 
 app = Flask(__name__)
 CORS(app)
@@ -43,6 +44,7 @@ def rows_to_json(rows):
         result.append(converted)
     return result
 
+
 def get_enum_values(enum_name):
     """Return a list of allowed ENUM values from PostgreSQL."""
     conn = get_db()
@@ -61,6 +63,20 @@ def get_enum_values(enum_name):
     cur.close()
     conn.close()
     return values
+
+
+# OPTIONAL: expose enum values via API (useful for frontend)
+@app.get("/api/enums/<enum_name>")
+def list_enum_values(enum_name):
+    try:
+        values = get_enum_values(enum_name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    if not values:
+        return jsonify({"error": f"Enum '{enum_name}' not found or has no values."}), 404
+
+    return jsonify({"name": enum_name, "values": values})
 
 
 # 1) List all users
@@ -168,6 +184,8 @@ def get_transactions_for_account(account_id):
 
 
 # CREATE INCOME / EXPENSE TRANSACTION
+# Expenses are stored as NEGATIVE amounts in the DB;
+# incomes are stored as POSITIVE amounts.
 @app.post("/api/transactions")
 def create_transaction():
     data = request.get_json(force=True) or {}
@@ -178,11 +196,49 @@ def create_transaction():
         return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
 
     account_id = data["account_id"]
-    tx_type = data["tx_type"]
-    amount = float(data["amount"])
+    tx_type = str(data["tx_type"]).strip()
     category_id = data.get("category_id")
     description = data.get("description", "").strip()
     operation_id = data["operation_id"]
+
+    # Parse and validate amount: must be positive input;
+    # we will apply the sign based on tx_type.
+    try:
+        amount_raw = float(data["amount"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "Amount must be a valid number."}), 400
+
+    if amount_raw <= 0:
+        return jsonify({"error": "Amount must be positive."}), 400
+
+    # Use DB enum introspection instead of hard-coding tx_type values
+    tx_types = get_enum_values("tx_type")
+    if tx_type not in tx_types:
+        return jsonify({
+            "error": f"Invalid tx_type '{tx_type}'. Allowed values: {tx_types}"
+        }), 400
+
+    # We handle income/expense here; transfers go via /api/transfers
+    if tx_type == "transfer":
+        return jsonify({
+            "error": "Use /api/transfers endpoint to record transfers."
+        }), 400
+
+    # Map semantics: income -> positive, expense -> negative
+    if "income" not in tx_types or "expense" not in tx_types:
+        return jsonify({
+            "error": "tx_type enum must contain 'income' and 'expense'."
+        }), 500
+
+    if tx_type == "income":
+        signed_amount = abs(amount_raw)      # +ve
+    elif tx_type == "expense":
+        signed_amount = -abs(amount_raw)     # -ve
+    else:
+        # In case new tx_type values are added in the future
+        return jsonify({
+            "error": f"Unsupported tx_type '{tx_type}' for this endpoint."
+        }), 400
 
     conn = get_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -206,23 +262,22 @@ def create_transaction():
                 "tx_id": existing["tx_id"]
             }), 200
 
-        # insert transaction
+        # insert transaction with SIGNED amount
         cur.execute(
             """
             INSERT INTO transactions
               (account_id, category_id, amount, tx_type, description, operation_id, tx_timestamp)
             VALUES (%s, %s, %s, %s, %s, %s, NOW())
-            RETURNING tx_id, tx_timestamp;
+            RETURNING tx_id, tx_timestamp, amount, tx_type, category_id, description;
             """,
-            (account_id, category_id, amount, tx_type, description, operation_id)
+            (account_id, category_id, signed_amount, tx_type, description, operation_id)
         )
         row = cur.fetchone()
 
-        # update balance
-        delta = amount if tx_type == "income" else -amount
+        # update balance by signed amount
         cur.execute(
             "UPDATE accounts SET current_balance = current_balance + %s WHERE account_id = %s",
-            (delta, account_id)
+            (signed_amount, account_id)
         )
 
         conn.commit()
@@ -239,7 +294,7 @@ def create_transaction():
     return jsonify(rows_to_json([row])[0]), 201
 
 
-# 3) Recent transactions for an account
+# Transfers between accounts
 @app.post("/api/transfers")
 def create_transfer():
     data = request.get_json(force=True) or {}
@@ -251,7 +306,11 @@ def create_transfer():
 
     from_acc = data["from_account_id"]
     to_acc = data["to_account_id"]
-    amount = float(data["amount"])
+    try:
+        amount = float(data["amount"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "Amount must be a valid number."}), 400
+
     operation_id = data["operation_id"]
     description = data.get("description", "").strip()
 
@@ -266,9 +325,12 @@ def create_transfer():
 
     try:
         # idempotency — does this transfer already exist?
-        cur.execute("""
+        cur.execute(
+            """
             SELECT tx_id FROM transactions WHERE operation_id = %s;
-        """, (operation_id,))
+            """,
+            (operation_id,),
+        )
         existing = cur.fetchall()
         if existing:
             conn.commit()
@@ -290,47 +352,61 @@ def create_transfer():
         # ensure operation exists
         cur.execute("SELECT operation_id FROM operations WHERE operation_id = %s;", (operation_id,))
         if not cur.fetchone():
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO operations (operation_id, request_hash)
                 VALUES (%s, %s);
-            """, (operation_id, f"hash-{abs(hash(description))}"))
+                """,
+                (operation_id, f"hash-{abs(hash(description))}"),
+            )
 
         # ---------------------------------
-        # 1) expense transaction on source
+        # 1) transaction on source (tx_type = 'transfer')
+        #    We keep amount positive here; it is not treated as expense in reports.
         # ---------------------------------
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO transactions
                 (account_id, amount, tx_type, description, operation_id, tx_timestamp)
             VALUES
                 (%s, %s, 'transfer', %s, %s, NOW())
             RETURNING tx_id;
-        """, (from_acc, amount, description, operation_id))
-
-        tx_expense_id = cur.fetchone()["tx_id"]
+            """,
+            (from_acc, amount, description, operation_id),
+        )
+        tx_out_id = cur.fetchone()["tx_id"]
 
         # ---------------------------------
-        # 2) income transaction on target
+        # 2) transaction on target (tx_type = 'transfer')
         # ---------------------------------
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO transactions
                 (account_id, amount, tx_type, description, operation_id, tx_timestamp)
             VALUES
                 (%s, %s, 'transfer', %s, %s, NOW())
             RETURNING tx_id;
-        """, (to_acc, amount, description, operation_id))
-
-        tx_income_id = cur.fetchone()["tx_id"]
+            """,
+            (to_acc, amount, description, operation_id),
+        )
+        tx_in_id = cur.fetchone()["tx_id"]
 
         # update balances
-        cur.execute("""
+        cur.execute(
+            """
             UPDATE accounts SET current_balance = current_balance - %s
             WHERE account_id = %s;
-        """, (amount, from_acc))
+            """,
+            (amount, from_acc),
+        )
 
-        cur.execute("""
+        cur.execute(
+            """
             UPDATE accounts SET current_balance = current_balance + %s
             WHERE account_id = %s;
-        """, (amount, to_acc))
+            """,
+            (amount, to_acc),
+        )
 
         conn.commit()
 
@@ -346,12 +422,14 @@ def create_transfer():
     return jsonify({
         "message": "Transfer completed successfully.",
         "operation_id": operation_id,
-        "from_tx_id": tx_expense_id,
-        "to_tx_id": tx_income_id
+        "from_tx_id": tx_out_id,
+        "to_tx_id": tx_in_id,
     }), 201
 
 
 # 5) Monthly cash-flow for a user
+# With expenses stored as NEGATIVE, we flip the sign in SQL so that
+# "expense_amount" is still reported as a positive number.
 @app.get("/api/users/<int:user_id>/cashflow")
 def get_user_cashflow(user_id):
     year = request.args.get("year", type=int)
@@ -367,8 +445,8 @@ def get_user_cashflow(user_id):
     cur.execute(
         """
         SELECT date_trunc('month', tx_timestamp)::date AS month_start,
-               SUM(CASE WHEN tx_type = 'income'  THEN amount END) AS income_amount,
-               SUM(CASE WHEN tx_type = 'expense' THEN amount END) AS expense_amount
+               SUM(CASE WHEN tx_type = 'income'  THEN amount  END)           AS income_amount,
+               SUM(CASE WHEN tx_type = 'expense' THEN -amount END)           AS expense_amount
         FROM transactions t
         NATURAL JOIN accounts a
         WHERE a.user_id = %s
@@ -387,7 +465,7 @@ def get_user_cashflow(user_id):
     for r in rows:
         month_start = r["month_start"]
         income = r["income_amount"] or 0
-        expense = r["expense_amount"] or 0
+        expense = r["expense_amount"] or 0   # already positive
         net = income - expense
 
         result.append(
