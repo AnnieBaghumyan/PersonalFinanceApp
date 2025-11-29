@@ -13,16 +13,21 @@ INSERT INTO users (full_name, email, password_hash, status, subscription) VALUES
 ('Howard Wolowitz','howard@nasa.gov','hash_howard','active','pro'),
 ('Raj Koothrappali','raj@caltech.edu','hash_raj','active','free'),
 ('Amy Farrah Fowler','amy@caltech.edu','hash_amy','active','pro'),
-('Bernadette Rostenkowski','bernadette@pharma.com','hash_bernie','active','premium');
+('Bernadette Rostenkowski','bernadette@pharma.com','hash_bernie','active','premium'),
+('Sheldon Test','test_sheldon@caltech.edu','hash_sheldon_test','inactive','premium_pro_max'),
+('Armenian Neighbor', 'hovik_abrahamyan@mail.ru', 'hash_mukik', 'active', 'free')
+;
 
 ------------------------------------------------------------
 -- CURRENCIES
 ------------------------------------------------------------
 INSERT INTO currencies (currency_code, name, symbol, is_default) VALUES
-('USD','US Dollar','$',TRUE),
+('AMD','Armenian Dram','֏',TRUE),
+('USD','US Dollar','$',FALSE),
 ('EUR','Euro','€',FALSE),
 ('GBP','British Pound','£',FALSE),
-('AMD','Armenian Dram','֏',FALSE);
+('INR','Indian Rupee','₹',FALSE)
+;
 
 ------------------------------------------------------------
 -- EXCHANGE RATES
@@ -44,22 +49,19 @@ INSERT INTO exchange_rates (base_currency_code, target_currency_code, rate, upda
 INSERT INTO accounts (account_id, user_id, currency_code, account_name, account_number, account_type, allow_overdraft, current_balance)
 VALUES
 (1,1,'USD','Sheldon Checking','US-SHELDON-CHK','current account',TRUE,3000.00),
-(2,1,'USD','Sheldon Cash Wallet',NULL,'cash',FALSE,200.00),
-
+(2,1,'USD','Sheldon Cash Wallet',NULL,'cash',FALSE,73),
 (3,2,'USD','Leonard Checking','US-LEONARD-CHK','current account',TRUE,2800.00),
-
 (4,3,'USD','Penny Checking','US-PENNY-CHK','debit card',TRUE,900.00),
-
 (5,4,'USD','Howard NASA Payroll','US-HOWARD-CHK','current account',TRUE,3500.00),
-
 (6,5,'USD','Raj Main Account','US-RAJ-CHK','current account',TRUE,4500.00),
-
 (7,6,'USD','Amy Research Account','US-AMY-CHK','current account',TRUE,6200.00),
-
-(8,7,'USD','Bernadette Pharma Account','US-BERNIE-CHK','current account',TRUE,9000.00);
+(8,7,'USD','Bernadette Pharma Account','US-BERNIE-CHK','current account',TRUE,9000.00),
+(9,5,'INR','Raj Hindu Account','IN-RAJ-CHK','current account',TRUE,5318008),
+(10,1,'AMD','Sheldon Safe No-One-Knows','AMD-SHELDON-CHK','cash',FALSE,314159265.35)
+;
 
 ------------------------------------------------------------
--- CATEGORIES (with hierarchy + "Food - Forced")
+-- CATEGORIES (with hierarchy)
 ------------------------------------------------------------
 INSERT INTO categories (category_id, user_id, category_name, category_type, parent_category_id) VALUES
 -- Sheldon (user_id = 1)
@@ -145,7 +147,8 @@ INSERT INTO categories (category_id, user_id, category_name, category_type, pare
 (73,7,'Experiments','expense',NULL),
 (74,7,'Family','expense',NULL),
 (75,7,'Chemicals','expense',73),
-(76,7,'Baby stuff','expense',74);
+(76,7,'Baby stuff','expense',74)
+;
 
 ------------------------------------------------------------
 -- BUDGETS
@@ -157,7 +160,8 @@ INSERT INTO budgets (category_id, limit_amount, alert_threshold, period_type, is
 (43, 300.00,80.0,'monthly',TRUE),   -- Howard Space Toys
 (53, 120.00,75.0,'monthly',TRUE),   -- Raj Coffee
 (64, 200.00,70.0,'monthly',TRUE),   -- Amy Tiaras
-(73, 500.00,70.0,'monthly',TRUE);   -- Bernadette Experiments
+(73, 500.00,70.0,'monthly',TRUE) 	 -- Bernadette Experiments
+;  
 
 ------------------------------------------------------------
 -- BILLS
@@ -186,7 +190,8 @@ INSERT INTO bills (bill_id, user_id, account_id, bill_name, amount_due, due_date
  'Amy: "Neuron Quarterly is the highlight of my month."'),
 
 (9,7,8,'Family Healthcare',600.00,'2025-01-25',FALSE,'monthly','pending',
- 'Bernadette: "Howard, if you lose another insurance form, I will end you."');
+ 'Bernadette: "Howard, if you lose another insurance form, I will end you."')
+ ;
 
 ------------------------------------------------------------
 -- LOANS
@@ -196,7 +201,8 @@ INSERT INTO loans (loan_id, user_id, account_id, loan_name, principal_amount, re
 VALUES
 (1,2,3,'Leonard Student Loan',30000.00,12000.00,3.5,400.00,'2025-02-01','active','2015-01-01',NULL,FALSE),
 (2,4,5,'Space Toilet Project Loan',20000.00,8000.00,4.0,350.00,'2025-02-03','active','2018-05-01',NULL,FALSE),
-(3,5,6,'Raj Telescope Loan',10000.00,3000.00,4.5,250.00,'2025-02-05','active','2019-09-01',NULL,FALSE);
+(3,5,6,'Raj Telescope Loan',10000.00,3000.00,4.5,250.00,'2025-02-05','active','2019-09-01',NULL,FALSE)
+;
 
 ------------------------------------------------------------
 -- GOALS
@@ -216,7 +222,8 @@ VALUES
 (6,6,'Monkey cognition lab fund',6000.00,1500.00,'2026-03-01','active',
  'Amy: "The monkeys will be treated better than Sheldon."'),
 (7,7,'Private basement lab',10000.00,4000.00,'2026-12-31','active',
- 'Bernadette: "Nothing evil, just… science."');
+ 'Bernadette: "Nothing evil, just… science."')
+;
 
 ------------------------------------------------------------
 -- OPERATIONS (a pool of IDs reused by many transactions)
@@ -267,7 +274,8 @@ INSERT INTO operations (operation_id, created_at, request_hash, metadata) VALUES
 ('00000000-0000-0000-0000-000000000025',NOW(),'op_bernie_experiments',NULL),
 ('00000000-0000-0000-0000-000000000026',NOW(),'op_bernie_baby',NULL),
 ('00000000-0000-0000-0000-000000000027',NOW(),'op_bernie_lab_goal',NULL),
-('00000000-0000-0000-0000-000000000028',NOW(),'op_misc_pattern',NULL);
+('00000000-0000-0000-0000-000000000028',NOW(),'op_misc_pattern',NULL)
+;
 
 ------------------------------------------------------------
 -- TRANSACTIONS
@@ -489,4 +497,5 @@ VALUES
 (8,73,280.00,'expense','2025-02-04 15:45:00',NULL,NULL,NULL,
  'Bernadette: "Experiment supplies. Howard doesn''t need to know the details."', '00000000-0000-0000-0000-000000000025'),
 (8,74,220.00,'expense','2025-02-18 17:20:00',NULL,NULL,NULL,
- 'Bernadette: "Family dinner out. I threatened Howard for tipping badly."', '00000000-0000-0000-0000-000000000024');
+ 'Bernadette: "Family dinner out. I threatened Howard for tipping badly."', '00000000-0000-0000-0000-000000000024')
+ ;

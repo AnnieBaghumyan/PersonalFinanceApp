@@ -1,7 +1,7 @@
 
 -- Drop tables
 DROP TABLE IF EXISTS transactions CASCADE;
-DROP TABLE IF EXISTS OPERATIONS CASCADE;
+DROP TABLE IF EXISTS operations CASCADE;
 DROP TABLE IF EXISTS goals CASCADE;
 DROP TABLE IF EXISTS loans CASCADE;
 DROP TABLE IF EXISTS bills CASCADE;
@@ -26,7 +26,7 @@ DROP TYPE IF EXISTS user_status CASCADE;
 
 -- Create ENUM types
 CREATE TYPE user_status AS ENUM ('active','inactive','suspended');
-CREATE TYPE subscription_type AS ENUM ('free','pro','premium');
+CREATE TYPE subscription_type AS ENUM ('free','pro','premium','premium_pro_max');
 CREATE TYPE category_type AS ENUM ('income','expense');
 CREATE TYPE period_type AS ENUM ('daily','weekly','monthly','yearly','custom','none');
 CREATE TYPE account_type AS ENUM ('cash','debit card','credit card','current account','investment');
@@ -160,7 +160,7 @@ CREATE TABLE transactions (
     category_id INTEGER REFERENCES categories(category_id),
     amount NUMERIC(18,2) NOT NULL,
     tx_type tx_type NOT NULL,
-    tx_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tx_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),	
     bill_id INTEGER REFERENCES bills(bill_id) ON DELETE SET NULL,
     loan_id INTEGER REFERENCES loans(loan_id) ON DELETE SET NULL,
     goal_id INTEGER REFERENCES goals(goal_id) ON DELETE SET NULL,
